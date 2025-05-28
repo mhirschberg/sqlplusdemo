@@ -1,6 +1,6 @@
 # SQL++ demo
 ## Introduction and prerequisites
-Create a free Couchbase Capella account, spin up a cluster and import the `travel-sample` dataset.
+Create a free [Couchbase Capella](https://cloud.couchbase.com/sign-up) account, spin up a cluster and import the `travel-sample` dataset.
 
 Navigate to `Data Tools -> Query`
 
@@ -29,6 +29,31 @@ UNNEST schedule sched
 WHERE  sched.day = 1
 LIMIT 3;
 ```
+**Explaination**
+
+The route documents look like this (simplified):
+```json
+{
+  "type": "route",
+  "sourceairport": "JFK",
+  "destinationairport": "LAX",
+  "schedule": [
+    { "flight": "AA100", "day": 1, "utc": "10:00" },
+    { "flight": "AA101", "day": 2, "utc": "12:00" }
+  ]
+}
+```
+Notice that the schedule field is an array of objects—each object represents a flight on a specific day and time.
+
+What does `UNNEST` do here?  
+* `UNNEST` schedule sched takes the schedule array from each route document and flattens it.
+* For each element in the `schedule` array, it creates a new row in the result, with sched representing each schedule entry.
+
+Summary
+
+* `UNNEST` is used to flatten the schedule array so you can work with each flight schedule as a separate row.
+* This makes it easy to filter, select, and display individual schedule entries, not just the parent route document.
+* `UNNEST` lets you treat each item in the schedule array as its own row in your query results, making it easy to filter and select specific flights.
 
 ### List only airports in Toulouse which have routes starting from them, and nest details of the routes.
 ```sql
@@ -39,8 +64,21 @@ FROM airport a
 WHERE a.city = "Toulouse"
 ORDER BY a.airportname;
 ```
+**Explaination**
 
-### Calculate the number of airlines per country using a window function, showing the distribution of airlines across different countries.
+`INNER NEST` is a SQL++ join operation that combines documents from two different datasets based on a specified condition.  
+Unlike a regular `JOIN`, `INNER NEST` embeds the matching documents from the second dataset into an array within the first dataset.
+
+Context: _airport_ and _route_ collections in the `travel-sample` bucket.  
+* _airport_: information about airports, including their FAA code (faa), city, and airport name.
+* _route_: information about flight routes, including the source airport (sourceairport) and destination airport.
+
+What `INNER NEST route r ON a.faa = r.sourceairport` does:  
+* This is where the magic happens. It finds all route documents (r) where the sourceairport matches the faa code of the airport document (a).
+* Instead of creating a flat, joined result (like a regular JOIN), it nests the matching route documents into an array within the airport document.
+
+
+### Calculate the number of airlines per country, showing the distribution of airlines across different countries.
 ```sql
 SELECT a.name, a.country, 
        COUNT(*) OVER (PARTITION BY a.country) AS country_airline_count
@@ -48,6 +86,18 @@ FROM airline a
 ORDER BY country_airline_count DESC
 LIMIT 10;
 ```
+
+**Explaination**
+
+The line of interest here is `COUNT(*) OVER (PARTITION BY a.country) AS country_airline_count`.  
+This is a `window function`. Here’s what it does:  
+* For each airline, it counts **how many airlines are in the same country**.
+* `PARTITION BY a.country` means the count is calculated separately for each country.
+* The result is a new column, _country_airline_count_, showing the total number of airlines in that airline’s country.
+
+Key Point: What Does the `Window Function` Do?
+
+For each airline, it counts the total number of airlines in that country. The result is not grouped (like with `GROUP BY`), so you still see each airline as a separate row, but with the country’s total airline count attached.
 
 ### Retrieve airport names and geo-coordinates, filtering based on latitude and longitude ranges.
 ```sql
@@ -57,6 +107,35 @@ WHERE ap.geo.lat BETWEEN 40 AND 50
   AND ap.geo.lon BETWEEN -80 AND -70
 LIMIT 5;
 ```
+
+**Explaination**
+
+Airport documents have a nested structure for geographical information:
+
+```json
+{
+  "type": "airport",
+  "faa": "JFK",
+  "airportname": "John F. Kennedy International Airport",
+  "geo": {
+    "lat": 40.6413,
+    "lon": -73.7781
+  },
+  "city": "New York",
+  "country": "United States"
+}
+```
+Notice the geo field, which is an object containing `lat` (latitude) and `lon` (longitude).
+
+The line of interest is `WHERE ap.geo.lat BETWEEN 40 AND 50 AND ap.geo.lon BETWEEN -80 AND -70`:
+* Filters the airport documents based on their latitude and longitude.
+* `ap.geo.lat BETWEEN 40 AND 50`: Selects airports with latitude between 40 and 50 degrees.
+* `ap.geo.lon BETWEEN -80 AND -70`: Selects airports with longitude between -80 and -70 degrees.
+
+Key Point: Accessing Nested Fields
+
+In SQL++, you use dot notation (.) to access fields within nested objects.  
+`ap.geo.lat` means "go to the ap document, then go to the geo field, and then get the lat field."
 
 ### Join airline and route on the IATA code, groups by airline name, and counts the number of routes per airline.
 ```sql
