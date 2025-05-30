@@ -192,13 +192,13 @@ Click on `Plan` and zoom in to see the orange bubbles (we're not interested in t
 <img width="1055" alt="image" src="https://github.com/user-attachments/assets/e3d56083-ae7b-4146-a78f-a2b3d58cb1d2" />
 
 
-Note, the time is lost (83.2%) during the `Fetch` phase. The system is using the primary index, which isn't a good idea, let's do something about it!  
+Note, the most time is lost in the `Fetch` phase. The system is using a primary index, which isn't a good idea. Let's do something about it!  
 Click the blue `Index Advice` button on the right. All it takes to improve the situation is to `Build suggested` index:
 
 <img width="594" alt="image" src="https://github.com/user-attachments/assets/88494e75-55a1-49e8-9398-8b6045e79a6f" />
 
 
-After it's built, re-run the query and observe the improved execution time (down to 258ms in my example): 
+After it's built, re-run the query and observe the improved execution time: 
 
 
 <img width="1409" alt="image" src="https://github.com/user-attachments/assets/21c2a6bb-c73a-4aa6-acb2-ee4bf91f3020" />
