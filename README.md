@@ -1,5 +1,5 @@
 # SQL++ demo
-## Introduction and prerequisites
+## Prerequisites
 Create a free [Couchbase Capella](https://cloud.couchbase.com/sign-up) account.  
 
 Create a Project:  
@@ -16,7 +16,12 @@ Click on the cluster name and then go to the `Data Tools` -> `Query`. Set the co
 
 <img width="1190" alt="image" src="https://github.com/user-attachments/assets/76f18544-0252-43cd-ab16-5c9f13b67c25" />
 
-Ready to run your first SQL++ query!
+## Introduction
+Couchbase, being a JSON based data platform, is organising the data differently than RDBMS:
+
+<img width="466" alt="image" src="https://github.com/user-attachments/assets/c1bd8db2-b1c8-4d82-a0d3-bd952bbd7972" />
+
+The language is very similar, so let's have a look what's similar to ANSI SQL and what's different.
 
 ### Select the name, IATA code, and ICAO code for airlines located in the United States, limiting the result to 5 entries.
 ```sql
@@ -25,6 +30,8 @@ FROM airline
 WHERE country = "United States"
 LIMIT 5;
 ```
+That looks really familiar, because there's no difference between SQL and SQL++: we're `SELECT`-ing some fields `FROM` the collection (remember, that is equal to a table in RDBMS world) `airline`.  
+`WHERE` and `LIMIT` are exactly the same.
 
 ### Count the number of airports in each country, ordering the results by the airport count in descending order and limiting to the top 5 countries.
 ```sql
@@ -34,6 +41,8 @@ GROUP BY country
 ORDER BY airport_count DESC
 LIMIT 5;
 ```
+`SELECT`, `FROM`, `GROUP BY`, `ORDER BY` and `LIMIT` - we're used to those from SQL already. No difference.
+
 
 ### In the route keyspace, flatten the schedule array to get details of the flights on Monday (1).
 ```sql
@@ -60,14 +69,14 @@ The route documents look like this (simplified):
 Notice that the schedule field is an array of objects—each object represents a flight on a specific day and time.
 
 What does `UNNEST` do here?  
-* `UNNEST` schedule sched takes the schedule array from each route document and flattens it.
+* **UNNEST** schedule sched takes the schedule array from each route document and flattens it.
 * For each element in the `schedule` array, it creates a new row in the result, with sched representing each schedule entry.
 
 Summary
 
-* `UNNEST` is used to flatten the schedule array so you can work with each flight schedule as a separate row.
+* **UNNEST** is used to flatten the schedule array so you can work with each flight schedule as a separate row.
 * This makes it easy to filter, select, and display individual schedule entries, not just the parent route document.
-* `UNNEST` lets you treat each item in the schedule array as its own row in your query results, making it easy to filter and select specific flights.
+* **UNNEST** lets you treat each item in the schedule array as its own row in your query results, making it easy to filter and select specific flights.
 
 ### List only airports in Toulouse which have routes starting from them, and nest details of the routes.
 ```sql
@@ -162,6 +171,17 @@ ORDER BY route_count DESC
 LIMIT 5;
 ```
 
+**Explaination**
+
+* **SELECT**: `a.name AS airline` - returns the airline name
+* **FROM**: `airline a` - references the airline documents in the inventory scope, aliased as `a`.
+* **JOIN**: joins with `route r` (aliased as `r`). Join condition: `r.airline = a.iata` - links routes to airlines using the airline's IATA code.
+* **WHERE**: `a.callsign IS NOT MISSING` - filters to only include airlines that have a callsign field (excludes null/missing values)
+* **COUNT**: `COUNT (r.airline) AS route_count` - counts how many routes each airline operates
+* **GROUP BY**: groups results by airline name to aggregate route counts per airline
+* **ORDER BY** and **LIMIT**: sorts by route count in descending order and returns only the top 5 airlines
+
+
 ### Use pattern matching to find airlines whose names start with "A" or contain "Air" with a "B" prefix.
 ```sql
 SELECT a.name, a.icao
@@ -171,6 +191,15 @@ WHERE (a.name LIKE "A%"
 ORDER BY a.name
 LIMIT 10;
 ```
+**Explaination**
+
+* **FROM**: `FROM airline a` - references airline documents in the inventory scope, aliased as `a`.
+* **WHERE** clause with _compound_ conditions: `a.name LIKE "A%"` - finds airlines whose names start with the letter "A"  
+OR  
+`REGEXP_CONTAINS(a.name, "^[Bb].*[Aa]ir")`: uses regex to find airlines whose names either start with _"B"_ or _"b"_ (`^[Bb]`), have any characters in between (`.*`), end with _"Air"_ or _"air"_ (`[Aa]ir`)
+* **SELECT**: `a.name` - returns the airline name, `a.icao` - returns the airline's ICAO code
+* **ORDER BY** & **LIMIT**: sorts results alphabetically by airline name and returns only the first 10 matches
+
 
 ### Categorize airports by region based on their country and counts the number of airports in each region.
 ```sql
@@ -187,6 +216,20 @@ GROUP BY ap.name, ap.country, region
 ORDER BY airport_count DESC
 LIMIT 10;
 ```
+
+**Explaination**
+
+* **FROM**: `airport ap` - references airport collection in the inventory scope, aliased as `ap`
+* **SELECT**
+   * `ap.name`: returns the airport name
+   * `ap.country`: returns the country of the airport
+   * **CASE ... END AS region** creates a new field called "region" based on the airport's country:
+     * If the country is in _"United States", "Canada", "Mexico"_, the region is _"North America"_
+     * If the country is in _"United Kingdom", "France", "Germany", "Spain", "Italy"_, the region is _"Europe"_
+     * If the country is in _"China", "Japan", "India"_, the region is _"Asia"_
+     * Otherwise, the region is _"Other Regions"_
+  * **COUNT(*) AS airport_count**: counts the number of airports for each combination of airport name, country, and region
+* **GROUP BY** & **LIMIT**: `ORDER BY airport_count DESC` sorts the results by the airport count in descending order, so the airport names with the most occurrences are listed first. `LIMIT 10` returns only the top 10 documents.
 
 ### Calculate the distance between each hotel and New York City using geo-coordinates.
 ```sql
@@ -209,6 +252,27 @@ ORDER BY miles_from_nyc
 LIMIT 10;
 ```
 
+**Explaination**
+
+- **FROM**:  
+  References hotel documents in the `inventory` scope: ``travel-sample.inventory.hotel h`` (aliased as `h`).
+
+- **SELECT**:  
+  - `h.name AS hotel_name`: returns the hotel name.  
+  - `h.address.city AS city`: returns the city from the nested address field.  
+  - `h.geo.lat AS latitude`: returns the latitude from the nested geo field.  
+  - `h.geo.lon AS longitude`: returns the longitude from the nested geo field.  
+  - `ROUND(DEGREES(ACOS(...)) * 69.09) AS miles_from_nyc`:  calculates the distance from New York City (latitude 40.7128, longitude -74.0060) using the Haversine formula. The result is rounded and converted to miles.
+
+- **WHERE**: filters out hotels missing geo-coordinates:  
+  - `h.geo IS NOT MISSING`  
+  - `h.geo.lat IS NOT MISSING`  
+  - `h.geo.lon IS NOT MISSING`
+
+- **ORDER BY & LIMIT**:  
+  - `ORDER BY miles_from_nyc`: Sorts results by distance from NYC, closest first.  
+  - `LIMIT 10`: Returns only the 10 closest hotels.
+
 ### The CTE (TopAirports) filters countries with more than 50 airports. The main query joins these countries to airlines and aggregates airline names per country.
 ```sql
 WITH TopAirports AS (
@@ -226,69 +290,153 @@ ORDER BY ta.airport_count DESC
 LIMIT 5;
 ```
 
-### One hop (direct) connections (edges) from node LAX to node JFK, and show the properties of the edge (flight, airline) and the connected nodes (airports).
+**Explaination**
+
+- **WITH Clause (CTE)** creates a temporary result set called `TopAirports`:
+  - `SELECT ap.country, COUNT(*) AS airport_count`: counts airports per country  
+  - `FROM travel-sample.inventory.airport ap`: references airport documents  
+  - `GROUP BY ap.country`: groups results by country  
+  - `HAVING COUNT(*) > 50`: filters to only include countries with more than 50 airports
+
+- **FROM** uses the CTE as the primary data source: `FROM TopAirports ta` (aliased as `ta`)
+
+- **JOIN** connects countries with their airlines:  
+  `JOIN travel-sample.inventory.airline a ON ta.country = a.country` links countries from the CTE with airline documents based on matching country names.
+
+- **SELECT**:  
+  - `ta.country`: returns the country name from the CTE  
+  - `ta.airport_count`: returns the airport count from the CTE  
+  - `ARRAY_AGG(a.name) AS airlines_in_country`: aggregates all airline names into an array for each country
+
+- **GROUP BY** groups results by country and airport count.
+  `GROUP BY ta.country, ta.airport_count`: this allows `ARRAY_AGG()` to collect all airlines per country.
+
+- **ORDER BY & LIMIT**:  
+  - `ORDER BY ta.airport_count DESC`: Sorts countries by airport count, highest first  
+  - `LIMIT 5`: Returns only the top 5 countries with the most airports
+
+### Direct Flight Paths from LAX to JFK.
 ```sql
+WITH FlightPath AS (
+    SELECT 
+        [source.faa, destination.faa] AS route,
+        destination.faa AS lastStop,
+        r.airline,
+        r.schedule,
+        1 AS depth
+    FROM route AS r
+    JOIN airport source ON r.sourceairport = source.faa
+    JOIN airport destination ON r.destinationairport = destination.faa
+    WHERE source.faa = "LAX"
+)
 SELECT 
-    src.faa AS source_airport_code,
-    src.name AS source_airport_name,
-    dest.faa AS destination_airport_code,
-    dest.name AS destination_airport_name,
-    r.airline AS airline_code,
-    a.name AS airline_name,
-    r.flight AS flight_number
-FROM `travel-sample`.inventory.route r
-JOIN `travel-sample`.inventory.airport src ON r.sourceairport = src.faa
-JOIN `travel-sample`.inventory.airport dest ON r.destinationairport = dest.faa
-JOIN `travel-sample`.inventory.airline a ON r.airline = a.iata
-WHERE src.faa = "LAX"
-  AND dest.faa = "JFK";
+    fp.route,
+    fp.airline,
+    ARRAY s FOR s IN fp.schedule END AS schedule
+FROM FlightPath AS fp
+WHERE fp.lastStop = "JFK" AND fp.depth = 1;
 ```
 
-Nodes: Airports (src and dest)  
-Edge: Route (r) connecting source to destination  
-Edge Properties: Airline, flight number  
-Traversal: From LAX (source node) to JFK (destination node) via a direct route (edge)  
-Enrichment: Joins with the airline collection to show airline details
+**Explaination**
 
-### A two-hop graph traversal query that finds all possible connections from LAX to JFK with exactly one stopover.
+This query finds all direct (non-stop) flight routes from Los Angeles International Airport (LAX) to John F. Kennedy International Airport (JFK) using a graph-style traversal pattern.  
+The query demonstrates the SQL++ ability to:  
+- Use CTEs to model graph traversal patterns (flight paths)
+- Join collections multiple times for source and destination relationships
+- Build and filter arrays to represent paths
+- Filter for direct connections using a "depth" field
+- Aggregate and return schedule data as arrays
+
+- **WITH Clause (`FlightPath` CTE)**: defines a temporary result set representing all direct flight paths starting from LAX.
+  - `SELECT [source.faa, destination.faa] AS route`: creates an array representing the route from the source airport to the destination airport using their FAA codes.
+  - `destination.faa AS lastStop`: stores the FAA code of the destination airport as the last stop in the route.
+  - `r.airline`: includes the airline operating the route.
+  - `r.schedule`: includes the schedule information for the route.
+  - `1 AS depth`:  sets the depth to 1, indicating a direct (single-leg) flight.
+  - `FROM route AS r`: uses the `route` collection as the main data source.
+  - `JOIN airport source ON r.sourceairport = source.faa`: joins the `airport` collection to get details about the source airport.
+  - `JOIN airport destination ON r.destinationairport = destination.faa`: joins the `airport` collection again to get details about the destination airport.
+  - `WHERE source.faa = "LAX"`: filters to only include routes that start at LAX.
+
+- **Main SELECT**:  
+  - `fp.route`: returns the array representing the route (e.g., `["LAX", "JFK"]`).
+  - `fp.airline`: returns the airline operating the route.
+  - `ARRAY s FOR s IN fp.schedule END AS schedule`: returns the schedule for the route as an array.
+
+- **WHERE**:   
+  - `fp.lastStop = "JFK"`: filters to only include routes where the destination is JFK.
+  - `fp.depth = 1`: ensures only direct flights (no layovers) are included.
+
+### A flight from LAX to JFK over MIA.
 ```sql
+WITH RECURSIVE FlightPath AS (
+    SELECT 
+        [source.faa, destination.faa] AS route,
+        destination.faa AS lastStop,
+        [route.airline] AS airlines,
+        [route.schedule] AS schedules,
+        1 AS depth
+    FROM route
+    JOIN airport source ON route.sourceairport = source.faa
+    JOIN airport destination ON route.destinationairport = destination.faa
+    WHERE source.faa = "LAX"
+    
+    UNION ALL
+    
+    SELECT 
+        ARRAY_APPEND(fp.route, destination.faa) AS route,
+        destination.faa AS lastStop,
+        ARRAY_APPEND(fp.airlines, route.airline) AS airlines,
+        ARRAY_APPEND(fp.schedules, route.schedule) AS schedules,
+        fp.depth + 1 AS depth
+    FROM FlightPath fp
+    JOIN route ON fp.lastStop = route.sourceairport
+    JOIN airport destination ON route.destinationairport = destination.faa
+    WHERE destination.faa != "LAX" AND fp.depth < 2
+)
+OPTIONS {"levels": 2}
 SELECT 
-    src.faa AS departure_airport_code,
-    src.name AS departure_airport_name,
-    r1.airline AS first_airline_code,
-    a1.name AS first_airline_name,
-    r1.flight AS first_flight_number,
-    mid.faa AS stopover_airport_code,
-    mid.name AS stopover_airport_name,
-    r2.airline AS second_airline_code,
-    a2.name AS second_airline_name,
-    r2.flight AS second_flight_number,
-    dest.faa AS arrival_airport_code,
-    dest.name AS arrival_airport_name
-FROM `travel-sample`.inventory.route r1
-JOIN `travel-sample`.inventory.airport src ON r1.sourceairport = src.faa
-JOIN `travel-sample`.inventory.airport mid ON r1.destinationairport = mid.faa
-JOIN `travel-sample`.inventory.airline a1 ON r1.airline = a1.iata
-JOIN `travel-sample`.inventory.route r2 ON mid.faa = r2.sourceairport
-JOIN `travel-sample`.inventory.airport dest ON r2.destinationairport = dest.faa
-JOIN `travel-sample`.inventory.airline a2 ON r2.airline = a2.iata
-WHERE src.faa = "LAX"
-  AND dest.faa = "JFK"
-  AND mid.faa != src.faa
-  AND mid.faa != dest.faa
-  AND mid.country = "United States" -- Filter stopovers to US airports
-ORDER BY mid.name
-LIMIT 10;
+    route,
+    airlines,
+    schedules
+FROM FlightPath
+WHERE route[1] = "MIA" AND lastStop = "JFK" AND depth = 2;
 ```
 
-Nodes: Airports (src, mid, dest)  
-Edges: Routes (r1, r2) connecting the airports  
-Edge 1: LAX → Stopover  
-Edge 2: Stopover → JFK
+**Explaination**
 
-Traversal Logic:  
-Start at node LAX  
-Find all outgoing edges (routes) from LAX  
-Follow each edge to an intermediate node (stopover airport)  
-From each intermediate node, find all outgoing edges to JFK
-Return the complete path with details of both edges
+This query uses a recursive Common Table Expression (CTE) to find all two-leg flight paths from Los Angeles International Airport (LAX) to John F. Kennedy International Airport (JFK) that connect through Miami International Airport (MIA). It demonstrates SQL++ ability to:  
+- Use recursive CTEs for graph traversal and multi-hop pathfinding
+- Build and extend arrays to represent routes, airlines, and schedules
+- Join collections multiple times to follow connections between airports
+- Filter for specific intermediate stops and path lengths
+- Model real-world graph problems (like flight connections) in a document database
+
+- **WITH RECURSIVE Clause (`FlightPath` CTE)**: defines a recursive structure to build flight paths step by step.
+  - **Base Case (First Leg):**  
+    - `SELECT [source.faa, destination.faa] AS route`: starts the route as an array with the source and destination FAA codes.
+    - `destination.faa AS lastStop`: sets the destination as the current last stop.
+    - `[route.airline] AS airlines`: starts an array with the airline for the first leg.
+    - `[route.schedule] AS schedules`: starts an array with the schedule for the first leg.
+    - `1 AS depth`: indicates this is the first leg of the journey.
+    - `FROM route ... WHERE source.faa = "LAX"`: finds all routes departing from LAX.
+
+  - **Recursive Case (Second Leg)**:   
+    - `ARRAY_APPEND(fp.route, destination.faa) AS route`: extends the route array by adding the next destination.
+    - `destination.faa AS lastStop`: updates the last stop to the new destination.
+    - `ARRAY_APPEND(fp.airlines, route.airline) AS airlines`: adds the airline for the new leg to the airlines array.
+    - `ARRAY_APPEND(fp.schedules, route.schedule) AS schedules`: adds the schedule for the new leg to the schedules array.
+    - `fp.depth + 1 AS depth`: increments the depth to indicate the number of legs.
+    - `FROM FlightPath fp ... WHERE destination.faa != "LAX" AND fp.depth < 2`: joins onward flights from the current last stop, avoids cycles back to LAX, and limits the path to two legs.
+
+- **OPTIONS {"levels": 2}**: limits the recursion to two levels (i.e., two flight legs).
+
+- **Main SELECT Clause:**
+  - `route`: returns the full route as an array of airport codes (e.g., `["LAX", "MIA", "JFK"]`).
+  - `airlines`: returns an array of airlines for each leg.
+  - `schedules`: returns an array of schedules for each leg.
+
+- **WHERE Clause:**  
+  - `route[1] = "MIA"`: ensures the first stop after LAX is MIA (Miami).
+  - `lastStop = "JFK"`: ensures the final destination is JFK (New York).
+  - `depth = 2`: ensures only two-leg journeys are included.
