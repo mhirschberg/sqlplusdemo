@@ -1,12 +1,19 @@
 # SQL++ demo
 ## Introduction and prerequisites
 Create a free [Couchbase Capella](https://cloud.couchbase.com/sign-up) account.  
-Create a Project:
+
+Create a Project:  
+
 <img width="680" alt="image" src="https://github.com/user-attachments/assets/fa93d90f-5580-438b-8907-308c13c4d40d" />
+
 Then, click on the project name and click `Create cluster` button. That opens a cluster creation dialog, simply hit the blue `Create cluster` button:  
-<img width="1664" alt="image" src="https://github.com/user-attachments/assets/73348531-cefd-485d-a24b-e38142ec2057" />
-After 5 minutes your cluster is ready to be used.   
+
+<img width="1664" alt="image" src="https://github.com/user-attachments/assets/73348531-cefd-485d-a24b-e38142ec2057" />  
+
+After 5 minutes your cluster is ready to be used.
+
 Click on the cluster name and then go to the `Data Tools` -> `Query`. Set the context to the bucket `travel-sample` and the scope `inventory`:  
+
 <img width="1190" alt="image" src="https://github.com/user-attachments/assets/76f18544-0252-43cd-ab16-5c9f13b67c25" />
 
 Ready to run your first SQL++ query!
