@@ -337,7 +337,7 @@ LIMIT 5;
   - `ORDER BY ta.airport_count DESC`: Sorts countries by airport count, highest first  
   - `LIMIT 5`: Returns only the top 5 countries with the most airports
 
-### Direct Flight Paths from LAX to JFK.
+### Graph traversal: a direct flight from LAX to JFK.
 ```sql
 WITH FlightPath AS (
     SELECT 
@@ -389,7 +389,7 @@ The query demonstrates the SQL++ ability to:
   - `fp.lastStop = "JFK"`: filters to only include routes where the destination is JFK.
   - `fp.depth = 1`: ensures only direct flights (no layovers) are included.
 
-### A flight from LAX to JFK over MIA.
+### Graph traversal: a flight from LAX to JFK over MIA.
 ```sql
 WITH RECURSIVE FlightPath AS (
     SELECT 
@@ -462,3 +462,77 @@ This query uses a recursive Common Table Expression (CTE) to find all two-leg fl
   - `route[1] = "MIA"`: ensures the first stop after LAX is MIA (Miami).
   - `lastStop = "JFK"`: ensures the final destination is JFK (New York).
   - `depth = 2`: ensures only two-leg journeys are included.
+
+### Transactions
+Did you know that Couchbase supports [ACID compliant multi-document transactions](https://docs.couchbase.com/server/current/learn/data/transactions.html)?  
+Let's have a look.  
+Before we run one, we need to change some query settings, as our Couchbase Capella instance is a one-node cluster.
+
+Click `Options` in the query editor:
+
+<img width="868" alt="image" src="https://github.com/user-attachments/assets/8ecb3fd2-c47e-4188-9bc8-072b11f045f9" />
+
+And then set 
+- `Transaction timeout` to `120 seconds`
+- `Scan Consistency` to `not_bounded`
+- Add a _Named Parameter_ `durability_level` with the value `"none"`, don't forgtet the value's quotes!
+
+Hit `Save`
+
+<img width="629" alt="image" src="https://github.com/user-attachments/assets/bda8f0a8-a971-4f2a-ba04-97f264596d8c" />
+
+Now we're good to go. I suggest a simple transaction:
+
+```sql
+BEGIN TRANSACTION;
+
+INSERT INTO `travel-sample`.tenant_agent_00.bookings (KEY, VALUE)
+VALUES ("booking_1", {
+    "customer_id": "cust_123",
+    "hotel_id": "hotel_456",
+    "check_in_date": "2023-10-01",
+    "check_out_date": "2023-10-05",
+    "status": "confirmed"
+});
+
+COMMIT;
+```
+
+**Verification**
+
+
+Once finished, let's switch to the `Documents` tab, set the context to the bucket `travel-sample`, the scope `tenant_agent_00` and the collection `booking`.  
+Fetch the document by its key - simply type `booking_1` into the `DOC ID` field and hit `Get Documents`:
+
+<img width="1172" alt="image" src="https://github.com/user-attachments/assets/63688ad8-29a8-43e7-a077-06c764a89b02" />
+
+**Explaination**
+
+This transaction demonstrates SQL++'s ability to:
+- Use ACID transactions for data consistency
+- Insert documents with explicit key-value pairs
+- Work with multi-tenant data structures (tenant-specific scopes)
+- Handle JSON document creation with nested field structures
+- Ensure data integrity through transaction boundaries
+
+- **BEGIN TRANSACTION:**  
+  Starts a new transaction to ensure atomicity and consistency.  
+  All operations within the transaction will either all succeed or all fail together.
+
+- **INSERT Statement:**  
+  - **Target Collection:**  
+    `travel-sample.tenant_agent_00.bookings`: Inserts into the `bookings` collection within the `tenant_agent_00` scope of the `travel-sample` bucket.
+  
+  - **Document Structure:**  
+    Uses `(KEY, VALUE)` syntax to explicitly specify both the document key and content:
+    - **KEY:** `"booking_1"` - The unique document identifier
+    - **VALUE:** JSON object containing the booking details:
+      - `"customer_id": "cust_123"`: Reference to the customer making the booking
+      - `"hotel_id": "hotel_456"`: Reference to the booked hotel
+      - `"check_in_date": "2023-10-01"`: Guest arrival date
+      - `"check_out_date": "2023-10-05"`: Guest departure date  
+      - `"status": "confirmed"`: Current booking status
+
+- **COMMIT:**  
+  Finalizes the transaction, making all changes permanent and visible to other operations.  
+  If any error occurred during the transaction, this would trigger a rollback instead.
