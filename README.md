@@ -506,6 +506,10 @@ Fetch the document by its key - simply type `booking_1` into the `DOC ID` field 
 
 <img width="1172" alt="image" src="https://github.com/user-attachments/assets/63688ad8-29a8-43e7-a077-06c764a89b02" />
 
+
+Click the document's key to open.
+
+
 **Explaination**
 
 This transaction demonstrates SQL++'s ability to:
@@ -525,13 +529,13 @@ This transaction demonstrates SQL++'s ability to:
   
   - **Document Structure:**  
     Uses `(KEY, VALUE)` syntax to explicitly specify both the document key and content:
-    - **KEY:** `"booking_1"` - The unique document identifier
+    - **KEY:** `"booking_1"` - the unique document identifier
     - **VALUE:** JSON object containing the booking details:
-      - `"customer_id": "cust_123"`: Reference to the customer making the booking
-      - `"hotel_id": "hotel_456"`: Reference to the booked hotel
-      - `"check_in_date": "2023-10-01"`: Guest arrival date
-      - `"check_out_date": "2023-10-05"`: Guest departure date  
-      - `"status": "confirmed"`: Current booking status
+      - `"customer_id": "cust_123"`: reference to the customer making the booking
+      - `"hotel_id": "hotel_456"`: reference to the booked hotel
+      - `"check_in_date": "2023-10-01"`: guest arrival date
+      - `"check_out_date": "2023-10-05"`: guest departure date  
+      - `"status": "confirmed"`: current booking status
 
 - **COMMIT:**  
   Finalizes the transaction, making all changes permanent and visible to other operations.  
