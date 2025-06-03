@@ -540,3 +540,61 @@ This transaction demonstrates SQL++'s ability to:
 - **COMMIT:**  
   Finalizes the transaction, making all changes permanent and visible to other operations.  
   If any error occurred during the transaction, this would trigger a rollback instead.
+
+
+### Time Series Querying
+For this exercise you will need to download the regular Time Series dataset time_series_regular.json (that can be found in this repository).
+The dataset contains daily values for minimum and maximum temperature in 2024 for several locations within Munich.
+The data in this dataset were already pre-converted into Time Series documents ready for querying in Couchbase (each JSON document contains data per location per month).
+
+#### Import the Time Series dataset into Capella
+
+In Capella UI: use the Import tool to import the regular Time Series dataset:
+  1. Go to the `Data Tools` tab → `Import` tab.
+  2. In the Import tab, select `Load from your browser` and choose the file ‘time_series_regular.json’ from your computer (please download it from this repository).
+  3. In the `Choose your target` step, click on `+ Create new target collection` and proceed to create a new bucket with `time_series` as the New Bucket Name, `time` as the New Scope Name and `weather` as the New Collection Name.
+     <img width="742" alt="image" src="https://github.com/user-attachments/assets/dd3abaff-92b8-46e8-9c19-411cf786e6c9" />
+  5. Click `Create`.
+  6. Select `Field` and `cbmid` as the Field name to use the value from the cbmid field inside of imported data as document keys.
+  7. Click `Import`.
+
+In Capella UI: switch from the `Import` tab to the `Documents` tab and check that the documents were imported correctly.
+<img width="1125" alt="Screenshot 2025-06-03 at 20 42 22" src="https://github.com/user-attachments/assets/5795a7a6-6f9b-453e-915a-f52c6fb7340e" />
+
+#### Query the regular Time Series data using SQL++ 
+
+In Capella UI: switch from the `Documents` tab to the `Query` tab and set the Query Context: `time_series` as the Bucket and `time` as the Scope. 
+In Capella Query Workbench: create a Secondary index (GSI) for the imported Time Series data in order to query it later.
+   
+```sql
+CREATE INDEX idx_temp ON weather(location, ts_end, ts_start);
+```
+<br>
+
+##### Show the daily low and high temperatures for the time period from Jan, 1st 2024 till Jan 10th 2024 for the 'Olympia' location.
+In Capella Query Workbench:
+
+```sql
+-- Define the start and end range for the query
+WITH range_start AS (1704067200000), -- Start timestamp in milliseconds (01.01.2024)
+     range_end AS (1704927600000) -- End timestamp in milliseconds (11.01.2024)
+-- Select the required fields from the weather collection
+SELECT MILLIS_TO_TZ(t._t,"UTC") AS day, -- Convert timestamp to UTC
+       t._v0 AS low, -- Low temperature
+       t._v1 AS high -- High temperature
+FROM weather AS d -- Alias `for` the weather collection
+UNNEST _timeseries(d, {"ts_ranges": [[range_start, range_end]]}) AS t -- Unnest the time series data with the specified range
+WHERE d.location = 'Olympia' -- Filter by location
+    AND (d.ts_start <= range_end -- Ensure the data's start timestamp is within the range
+        AND d.ts_end >= range_start) -- Ensure the data's end timestamp is within the range
+-- Order by timestamp
+ORDER BY t._t;
+```
+
+**Explaination**
+
+- This query uses a CTE (common table expression) to store the date-time range.
+- For each time point, the [_TIMESERIES](https://docs.couchbase.com/cloud/n1ql/n1ql-language-reference/timeseries.html) function calculates the date-time stamp `_t` and returns the values `_v0` and `_v1`.
+- The query adds aliases to the data returned by the _TIMESERIES function and converts the date-time stamp to a readable date-time string.
+   
+   
