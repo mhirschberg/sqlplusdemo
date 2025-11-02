@@ -33,7 +33,7 @@ LIMIT 5;
 That looks really familiar, because there's no difference between SQL and SQL++: we're `SELECT`-ing some fields `FROM` the collection (remember, that is equal to a table in RDBMS world) `airline`.  
 `WHERE` and `LIMIT` are exactly the same.
 
-### Count the number of airports in each country, ordering the results by the airport count in descending order and limiting to the top 5 countries.
+### Count the number of airports in each country, ordering the results by the airport count in descending order.
 ```sql
 SELECT country, COUNT(*) AS airport_count
 FROM airport
@@ -70,11 +70,11 @@ The route documents look like this (simplified):
   ]
 }
 ```
-Notice that the schedule field is an array of objects—each object represents a flight on a specific day and time.
+Notice that the schedule field is an array of objects - each object represents a flight on a specific day and time.
 
 What does `UNNEST` do here?  
-* **UNNEST** schedule sched takes the schedule array from each route document and flattens it.
-* For each element in the `schedule` array, it creates a new row in the result, with sched representing each schedule entry.
+* `**UNNEST** schedule sched` takes the schedule array from each route document and flattens it.
+* For each element in the `schedule` array, it creates a new row in the result, with `sched` representing each schedule entry.
 
 Summary
 
@@ -110,8 +110,8 @@ What `INNER NEST route r ON a.faa = r.sourceairport` does:
 SELECT a.name, a.country, 
        COUNT(*) OVER (PARTITION BY a.country) AS country_airline_count
 FROM airline a
-ORDER BY country_airline_count DESC
-LIMIT 10;
+ORDER BY country_airline_count ASC
+LIMIT 30;
 ```
 
 **Explaination**
@@ -120,7 +120,7 @@ The line of interest here is `COUNT(*) OVER (PARTITION BY a.country) AS country_
 This is a `window function`. Here’s what it does:  
 * For each airline, it counts **how many airlines are in the same country**.
 * `PARTITION BY a.country` means the count is calculated separately for each country.
-* The result is a new column, _country_airline_count_, showing the total number of airlines in that airline’s country.
+* The result is a new field, _country_airline_count_, showing the total number of airlines in that airline’s country.
 
 Key Point: What Does the `Window Function` Do?
 
@@ -128,7 +128,7 @@ For each airline, it counts the total number of airlines in that country. The re
 
 ### Retrieve airport names and geo-coordinates, filtering based on latitude and longitude ranges.
 ```sql
-SELECT ap.name, ap.geo.lat, ap.geo.lon
+SELECT ap.airportname, ap.geo.lat, ap.geo.lon
 FROM airport ap
 WHERE ap.geo.lat BETWEEN 40 AND 50
   AND ap.geo.lon BETWEEN -80 AND -70
@@ -164,7 +164,7 @@ Key Point: Accessing Nested Fields
 In SQL++, you use dot notation (.) to access fields within nested objects.  
 `ap.geo.lat` means "go to the ap document, then go to the geo field, and then get the lat field."
 
-### Join airline and route on the IATA code, groups by airline name, and counts the number of routes per airline.
+### Join airline and route on the IATA code, group by airline name, and count the number of routes per airline.
 ```sql
 SELECT a.name AS airline, COUNT(r.airline) AS route_count
 FROM `travel-sample`.inventory.airline a
@@ -210,8 +210,7 @@ SELECT a.name, a.icao
 FROM `travel-sample`.inventory.airline a
 WHERE (a.name LIKE "A%"
        OR REGEXP_CONTAINS(a.name, "^[Bb].*[Aa]ir"))
-ORDER BY a.name
-LIMIT 10;
+ORDER BY a.name;
 ```
 **Explaination**
 
@@ -220,12 +219,12 @@ LIMIT 10;
 OR  
 `REGEXP_CONTAINS(a.name, "^[Bb].*[Aa]ir")`: uses regex to find airlines whose names either start with _"B"_ or _"b"_ (`^[Bb]`), have any characters in between (`.*`), end with _"Air"_ or _"air"_ (`[Aa]ir`)
 * **SELECT**: `a.name` - returns the airline name, `a.icao` - returns the airline's ICAO code
-* **ORDER BY** & **LIMIT**: sorts results alphabetically by airline name and returns only the first 10 matches
+* **ORDER BY**: sorts results alphabetically by airline name
 
 
 ### Categorize airports by region based on their country and counts the number of airports in each region.
 ```sql
-SELECT ap.name, ap.country,
+SELECT ap.airportname, ap.country,
        CASE 
          WHEN ap.country IN ["United States", "Canada", "Mexico"] THEN "North America"
          WHEN ap.country IN ["United Kingdom", "France", "Germany", "Spain", "Italy"] THEN "Europe"
@@ -234,7 +233,7 @@ SELECT ap.name, ap.country,
        END AS region,
        COUNT(*) AS airport_count
 FROM `travel-sample`.inventory.airport ap
-GROUP BY ap.name, ap.country, region
+GROUP BY ap.airportname, ap.country, region
 ORDER BY airport_count DESC
 LIMIT 10;
 ```
@@ -243,20 +242,20 @@ LIMIT 10;
 
 * **FROM**: `airport ap` - references airport collection in the inventory scope, aliased as `ap`
 * **SELECT**
-   * `ap.name`: returns the airport name
+   * `ap.airportname`: returns the airport name
    * `ap.country`: returns the country of the airport
-   * **CASE ... END AS region** creates a new field called "region" based on the airport's country:
+   * `**CASE ... END AS region**`: creates a new field called "region" based on the airport's country:
      * If the country is in _"United States", "Canada", "Mexico"_, the region is _"North America"_
      * If the country is in _"United Kingdom", "France", "Germany", "Spain", "Italy"_, the region is _"Europe"_
      * If the country is in _"China", "Japan", "India"_, the region is _"Asia"_
      * Otherwise, the region is _"Other Regions"_
-  * **COUNT(*) AS airport_count**: counts the number of airports for each combination of airport name, country, and region
+  * `**COUNT(*) AS airport_count**`: counts the number of airports for each combination of airport name, country, and region
 * **GROUP BY** & **LIMIT**: `ORDER BY airport_count DESC` sorts the results by the airport count in descending order, so the airport names with the most occurrences are listed first. `LIMIT 10` returns only the top 10 documents.
 
 ### Calculate the distance between each hotel and New York City using geo-coordinates.
 ```sql
 SELECT h.name AS hotel_name, 
-       h.address.city AS city,
+       h.address AS address,
        h.geo.lat AS latitude, 
        h.geo.lon AS longitude,
        ROUND(
@@ -281,12 +280,12 @@ LIMIT 10;
 
 - **SELECT**:  
   - `h.name AS hotel_name`: returns the hotel name.  
-  - `h.address.city AS city`: returns the city from the nested address field.  
+  - `h.address AS address`: returns the address of the hotel.  
   - `h.geo.lat AS latitude`: returns the latitude from the nested geo field.  
   - `h.geo.lon AS longitude`: returns the longitude from the nested geo field.  
   - `ROUND(DEGREES(ACOS(...)) * 69.09) AS miles_from_nyc`:  calculates the distance from New York City (latitude 40.7128, longitude -74.0060) using the Haversine formula. The result is rounded and converted to miles.
 
-- **WHERE**: filters out hotels missing geo-coordinates:  
+- **WHERE**: filters out hotels with missing geo-coordinates:  
   - `h.geo IS NOT MISSING`  
   - `h.geo.lat IS NOT MISSING`  
   - `h.geo.lon IS NOT MISSING`
@@ -475,7 +474,7 @@ Click `Options` in the query editor:
 And then set 
 - `Transaction timeout` to `120 seconds`
 - `Scan Consistency` to `not_bounded`
-- Add a _Named Parameter_ `durability_level` with the value `"none"`, don't forgtet the value's quotes!
+- Add a _Named Parameter_ `durability_level` with the value `"none"`, don't forget the value's quotes!
 
 Hit `Save`
 
@@ -501,7 +500,7 @@ COMMIT;
 **Verification**
 
 
-Once finished, let's switch to the `Documents` tab, set the context to the bucket `travel-sample`, the scope `tenant_agent_00` and the collection `booking`.  
+Once finished, let's switch to the `Documents` tab, set the context to the bucket `travel-sample`, the scope `tenant_agent_00` and the collection `bookings`.  
 Fetch the document by its key - simply type `booking_1` into the `DOC ID` field and hit `Get Documents`:
 
 <img width="1172" alt="image" src="https://github.com/user-attachments/assets/63688ad8-29a8-43e7-a077-06c764a89b02" />
@@ -543,7 +542,7 @@ This transaction demonstrates SQL++'s ability to:
 
 
 ### Time Series Querying
-For this exercise you will need to download the regular Time Series dataset time_series_regular.json (that can be found in this repository).
+For this exercise you will need to download the regular Time Series dataset `time_series_regular.json` (that can be found in this repository).
 The dataset contains daily values for minimum and maximum temperature in 2024 for several locations within Munich.
 The data in this dataset were already pre-converted into Time Series documents ready for querying in Couchbase (each JSON document contains data per location per month).
 
@@ -551,15 +550,17 @@ The data in this dataset were already pre-converted into Time Series documents r
 
 In Capella UI: use the Import tool to import the regular Time Series dataset:
   1. Go to the `Data Tools` tab → `Import` tab.
-  2. In the Import tab, select `Load from your browser` and choose the file ‘time_series_regular.json’ from your computer (please download it from this repository).
-  3. In the `Choose your target` step, click on `+ Create new target collection` and proceed to create a new bucket with `time_series` as the New Bucket Name, `time` as the New Scope Name and `weather` as the New Collection Name.
-     <img width="742" alt="image" src="https://github.com/user-attachments/assets/dd3abaff-92b8-46e8-9c19-411cf786e6c9" />
-  5. Click `Create`.
-  6. Select `Field` and `cbmid` as the Field name to use the value from the cbmid field inside of imported data as document keys.
-  7. Click `Import`.
+  2. In the Import tab, select `Load from your browser` and choose the file ‘time_series_regular.json’ from your computer (please, download it from this repository first).
+  3. In the `Choose your target` step, click on `+ Create new target collection` and proceed to create a `New` bucket with `time_series` as the New Bucket Name, `time` as the New Scope Name and `weather` as the New Collection Name.
+     <img width="732" height="859" alt="Screenshot 2025-11-02 at 14 56 20" src="https://github.com/user-attachments/assets/78ccf6d5-ffb9-4abc-a9ba-581bd6c7a414" />
+  4. Click `Create`.
+  5. Select `Field` and `cbmid` as the Field name to use the value from the cbmid field inside of the imported data as document keys.
+  6. Click `Import`.
+
 
 In Capella UI: switch from the `Import` tab to the `Documents` tab and check that the documents were imported correctly.
-<img width="1125" alt="Screenshot 2025-06-03 at 20 42 22" src="https://github.com/user-attachments/assets/5795a7a6-6f9b-453e-915a-f52c6fb7340e" />
+<img width="1121" height="756" alt="Screenshot 2025-11-02 at 14 58 19" src="https://github.com/user-attachments/assets/c9b97700-8f19-4f1e-a52a-6cd9ab77634d" />
+
 
 #### Query the regular Time Series data using SQL++ 
 
@@ -571,7 +572,7 @@ CREATE INDEX idx_temp ON weather(location, ts_end, ts_start);
 ```
 <br>
 
-##### Show the daily low and high temperatures for the time period from Jan, 1st 2024 till Jan 10th 2024 for the 'Olympia' location.
+#### Show the daily low and high temperatures for the time period from Jan, 1st 2024 till Jan 10th 2024 for the 'Olympia' location.
 In Capella Query Workbench:
 
 ```sql
@@ -579,7 +580,7 @@ In Capella Query Workbench:
 WITH range_start AS (1704067200000), -- Start timestamp in milliseconds (01.01.2024)
      range_end AS (1704927600000) -- End timestamp in milliseconds (11.01.2024)
 -- Select the required fields from the weather collection
-SELECT MILLIS_TO_TZ(t._t,"UTC") AS day, -- Convert timestamp to UTC
+SELECT d.location, MILLIS_TO_TZ(t._t,"UTC") AS day, -- Convert timestamp to UTC
        t._v0 AS low, -- Low temperature
        t._v1 AS high -- High temperature
 FROM weather AS d -- Alias `for` the weather collection
